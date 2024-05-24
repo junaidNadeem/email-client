@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function Login() {
   const { loginWithRedirect, isAuthenticated, user, logout } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
+
     if (isAuthenticated && user) {
-      navigate(`/accounts/`);
+
+      navigate(`/MainPage/`);
     }
   }, [isAuthenticated, user, navigate]);
 

@@ -1,24 +1,28 @@
-import express from 'express';
-import passport from 'passport';
+import express, { Request, Response, NextFunction } from 'express';
+import passport, { use } from 'passport';
 import session from 'express-session';
 import axios from 'axios';
-const OutlookStrategy = require('passport-outlook').Strategy;
-import { Client } from '@elastic/elasticsearch';
+import { Client as ElasticsearchClient } from '@elastic/elasticsearch';
 import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
+import 'isomorphic-fetch';
+import { ConfidentialClientApplication } from '@azure/msal-node';
+const OutlookStrategy = require('passport-outlook').Strategy;
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
+
 app.use(cors({
   origin: 'http://localhost:3001',
   credentials: true
 }));
 
-app.use(express.json()); // Add this line to parse JSON bodies
+app.use(express.json());
 
 // Elasticsearch client setup
-const esClient = new Client({
+const esClient = new ElasticsearchClient({
   node: 'http://localhost:9200',
   headers: { 'Content-Type': 'application/x-ndjson' } // Set correct Content-Type for bulk operations
 });
@@ -26,8 +30,8 @@ const esClient = new Client({
 // Replace these values with your Azure AD app details
 const OUTLOOK_CLIENT_ID = '1713f17c-8983-4d24-9133-db5abdf4c617';
 const OUTLOOK_CLIENT_SECRET = 'Qw08Q~6hb5rcDLkfjdjo67R~lZLrNREVy6UsqcFw';
-const OUTLOOK_CALLBACK_URL = 'http://localhost:3000/auth/outlook/callback';
-const TENANT_ID = 'f8cdef31-a31e-4b4a-93e4-5f571e91255a';
+const OUTLOOK_CALLBACK_URL = 'http://localhost:3000/delegated/callback';
+const TENANT_ID = 'YOUR_TENANT_ID';
 
 // Define a custom User interface extending Express.User
 interface User extends Express.User {
@@ -45,15 +49,18 @@ interface EmailDocument {
   isRead: boolean;
 }
 
+// Define an interface for the Elasticsearch hit object
+interface ElasticsearchHit<T> {
+  _source: T;
+}
+
 // Define the structure of the Elasticsearch response
 interface ElasticsearchResponse<T> {
   hits: {
     total: {
       value: number;
     };
-    hits: Array<{
-      _source: T;
-    }>;
+    hits: Array<ElasticsearchHit<T>>;
   };
 }
 
@@ -86,79 +93,66 @@ app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.get('/isAuthenticated', (req: Request, res: Response) => {
+  if (req.isAuthenticated()) {
+    res.json({ isAuthenticated: true });
+  } else {
+    res.json({ isAuthenticated: false });
+  }
+});
+
 // Routes
 app.get('/auth/outlook', passport.authenticate('windowslive', {
   scope: [
     'openid',
     'profile',
     'offline_access',
-    'https://outlook.office.com/Mail.Read'
+    'https://outlook.office.com/Mail.Read',
   ]
 }));
 
-app.get('/auth/outlook/callback',
+app.get('/delegated/callback',
   passport.authenticate('windowslive', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://localhost:3001/mails');
+    res.redirect('/initialFetch');
   }
 );
 
-app.get('/user/:email', async (req, res) => {
-  const email = req.params.email;
+app.post('/createuser', (req, res) => {
+  const id = req.header('id');
+  const email = req.header('email')
+  const name = req.header('name')
+  const number = req.header('number')
 
-  try {
-    // Check if the user exists in the Elasticsearch index using curl
-    const checkUserCommand = `
-      curl -X GET "http://localhost:9200/users/_search" -H 'Content-Type: application/json' -d'
-      {
-        "query": {
-          "match": {
-            "email": "${email}"
-          }
-        }
-      }'
-    `;
 
-    exec(checkUserCommand, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Error checking user:', stderr);
-        return res.status(500).json({ message: 'Error checking user', details: stderr });
-      }
-
-      const result = JSON.parse(stdout);
-      if (result.hits.total.value > 0) {
-        // User exists, return user email
-        checkUserAccounts(email, res);
-      } else {
-        // User does not exist, create a new user
-        const newUser = {
-          email,
-          createdAt: new Date().toISOString()
-        };
-
-        const createUserCommand = `
-          curl -X POST "http://localhost:9200/users/_doc" -H 'Content-Type: application/json' -d'
-          ${JSON.stringify(newUser)}'
-        `;
-
-        exec(createUserCommand, (error, stdout, stderr) => {
-          if (error) {
-            console.error('Error creating user:', stderr);
-            return res.status(500).json({ message: 'Error creating user', details: stderr });
-          }
-
-          // User created, return user email
-          checkUserAccounts(email, res);
-        });
-      }
-    });
-  } catch (error) {
-    console.error('Error checking or creating user:', error);
-    res.status(500).send('Internal server error');
+  if (!id || !email || !name || !number) {
+    return res.status(400).json({ message: 'Missing required headers' });
   }
+
+  const newUser = {
+    email,
+    name,
+    number,
+    createdAt: new Date().toISOString(),
+  };
+
+  const createUserCommand = `
+    curl -X POST "http://localhost:9200/users/_doc/${id}" -H 'Content-Type: application/json' -d'
+    ${JSON.stringify(newUser)}'
+  `;
+
+  exec(createUserCommand, (error, stdout, stderr) => {
+    if (error) {
+      console.error('Error creating user:', stderr);
+      return res.status(500).json({ message: 'Error creating user', details: stderr });
+    }
+
+    console.log('User created:', stdout);
+    return res.status(201).json({ message: 'User created successfully', user: newUser });
+  });
 });
 
-function checkUserAccounts(email: any, res: any) {
+function checkUserAccounts(email: any, res: Response) {
   const checkAccountsCommand = `
     curl -X GET "http://localhost:9200/user_accounts/_search" -H 'Content-Type: application/json' -d'
     {
@@ -178,7 +172,7 @@ function checkUserAccounts(email: any, res: any) {
 
     const result: ElasticsearchResponse<User> = JSON.parse(stdout);
     if (result.hits.total.value > 0) {
-      const accounts = result.hits.hits.map(hit => hit._source);
+      const accounts = result.hits.hits.map((hit: ElasticsearchHit<User>) => hit._source);
       res.json({ message: 'User exists', email: email, accounts: accounts });
     } else {
       res.json({ message: 'User exists but no accounts found', email: email, accounts: [] });
@@ -186,7 +180,7 @@ function checkUserAccounts(email: any, res: any) {
   });
 }
 
-app.get('/emails', ensureAuthenticated, async (req, res) => {
+app.get('/initialFetch', ensureAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as User;
     let allEmails: any[] = [];
@@ -204,56 +198,31 @@ app.get('/emails', ensureAuthenticated, async (req, res) => {
       nextLink = response.data['@odata.nextLink'] || null;
     }
 
-    // Prepare data for bulk indexing
-    const bulkData = allEmails.map((email: any, index: number) => {
-      // Transform ParentFolderId based on condition
-
+    const bulkData = allEmails.map((email: any) => {
       const parsedEmail: any = {
         account: user.email,
         subject: email.Subject,
         body: email.BodyPreview,
         isRead: email.IsRead,
         datetime: email.CreatedDateTime,
+        from: email.IsDraft ? null : email.From.EmailAddress,
+        to: email.IsDraft || !email.ToRecipients ? [] : email.ToRecipients.map((recipient: any) => recipient.EmailAddress),
       };
 
-      // Check if the email is not a draft
-      if (!email.IsDraft) {
-        // Extract "from" email address if the email is not a draft
-        parsedEmail.from = email.From.EmailAddress;
-
-        // Check if ToRecipients exists and is not empty
-        if (email.ToRecipients && email.ToRecipients.length > 0) {
-          // Extract the "to" recipients
-          const toRecipients = email.ToRecipients.map((recipient: any) => recipient.EmailAddress);
-
-          // Include "to" recipients in parsedEmail
-          parsedEmail.to = toRecipients;
-        }
-
-        else {
-          // If ToRecipients does not exist or is empty, set "to" as an empty array
-          parsedEmail.to = [];
-        }
-      }
-
       return [
-        JSON.stringify({ index: { _index: 'account_mails', _id: `${user.id}-${index}` } }),
+        JSON.stringify({ index: { _index: 'account_mails', _id: email.Id } }),
         JSON.stringify(parsedEmail)
       ].join('\n');
     }).join('\n') + '\n';
 
-    // Write bulk data to a temporary file
     const tempFilePath = path.join(__dirname, 'bulk_data.ndjson');
     fs.writeFileSync(tempFilePath, bulkData);
 
-    // Define curl command
     const curlCommand = `
       curl -X POST "http://localhost:9200/_bulk" -H "Content-Type: application/x-ndjson" --data-binary @${tempFilePath}
     `;
 
-    // Execute curl command
     exec(curlCommand, (error, stdout, stderr) => {
-      // Clean up the temporary file
       fs.unlinkSync(tempFilePath);
 
       if (error) {
@@ -262,9 +231,21 @@ app.get('/emails', ensureAuthenticated, async (req, res) => {
       }
 
       console.log('Bulk indexing succeeded:', stdout);
+      res.redirect('http://localhost:3001/mainPage');
+    });
 
-      // Directly query the emails after indexing
-      const query = `
+  } catch (error: any) {
+    console.error('Error fetching or indexing emails:', error);
+    res.status(500).send({ message: 'Error fetching or indexing emails', details: error.message });
+  }
+});
+
+
+app.get('/emails', async (req: Request, res: Response) => {
+  const email = req.params.email;
+  const user = req.user as User
+  try {
+    const query = `
       curl -X GET "http://localhost:9200/account_mails/_search" -H 'Content-Type: application/json' -d'
       {
         "query": {
@@ -272,47 +253,7 @@ app.get('/emails', ensureAuthenticated, async (req, res) => {
             "account": "${user.email}"
           }
         },
-        "size": 10000 // Adjust the size to handle more results
-      }'
-    `;
-
-      exec(query, (error, stdout, stderr) => {
-        if (error) {
-          console.error('Error querying emails:', stderr);
-          return res.status(500).json({ message: 'Error querying emails', details: stderr });
-        }
-
-        const result = JSON.parse(stdout);
-        if (!result.hits || !result.hits.hits || !Array.isArray(result.hits.hits)) {
-          console.error('Invalid data format received:', result);
-          return res.status(500).json({ message: 'Invalid data format received', details: result });
-        }
-
-        const emails = result.hits.hits.map((hit: any) => hit._source);
-        res.json(emails);
-      });
-    });
-
-  } catch (error: any) {
-    // Debugging: Log the error details
-    console.error('Error fetching or indexing emails:', error);
-    res.status(500).send({ message: 'Error fetching or indexing emails', details: error.message });
-  }
-});
-
-
-app.get('/emails/:email', async (req, res) => {
-  const email = req.params.email;
-
-  try {
-    const query = `
-      curl -X GET "http://localhost:9200/account_mails/_search" -H 'Content-Type: application/json' -d'
-      {
-        "query": {
-          "match": {
-            "account": "${email}"
-          }
-        }
+        "size": 1000
       }'
     `;
 
@@ -328,7 +269,7 @@ app.get('/emails/:email', async (req, res) => {
         return res.status(500).json({ message: 'Invalid data format received', details: result });
       }
 
-      const emails = result.hits.hits.map((hit: any) => hit._source);
+      const emails = result.hits.hits.map((hit: ElasticsearchHit<EmailDocument>) => hit._source);
       res.json(emails);
     });
   } catch (error: any) {
@@ -337,30 +278,30 @@ app.get('/emails/:email', async (req, res) => {
   }
 });
 
-function ensureAuthenticated(req: any, res: any, next: any) {
+function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
     return next();
   }
-  res.redirect('/');
+  res.redirect('/auth/outlook');
 }
 
-// New route to handle account creation
-app.post('/createaccount', async (req, res) => {
-  const id = req.header('id');
-  const userId = req.header('user_id');
 
-  if (!id || !userId) {
-    return res.status(400).json({ message: 'id and user_id headers are required' });
+app.get('/createaccount', ensureAuthenticated, async (req: Request, res: Response) => {
+  const user = req.user as User;
+  const userId = req.header('user_id')// Generate a random user ID for now
+
+  if (!user) {
+    return res.status(400).json({ message: 'User not authenticated' });
   }
-
   const newAccount = {
-    id,
-    user_id: userId,
+    account_email: user.email,
+    user_id: userId, // Use the generated user ID
+    accessToken: user.accessToken,
     createdAt: new Date().toISOString()
   };
 
   const createAccountCommand = `
-    curl -X POST "http://localhost:9200/user_accounts/_doc/${id}" -H 'Content-Type: application/json' -d'
+    curl -X POST "http://localhost:9200/user_accounts/_doc/${user.id}" -H 'Content-Type: application/json' -d'
     ${JSON.stringify(newAccount)}'
   `;
 
@@ -370,8 +311,262 @@ app.post('/createaccount', async (req, res) => {
       return res.status(500).json({ message: 'Error creating account', details: stderr });
     }
 
-    res.status(201).json({ message: 'Account created successfully', account: newAccount });
+    // After creating the account, call the /subscribe endpoint
+    axios.get('http://localhost:3000/subscribe', {
+      headers: {
+        Cookie: req.headers.cookie || '' // Pass cookies to maintain the session
+      }
+    })
+    .then((response) => {
+      res.status(201).json({ message: 'Account created and subscription added successfully', account: newAccount });
+    })
+    .catch((error) => {
+      console.error('Error calling /subscribe:', error);
+      res.status(500).json({ message: 'Account created but error subscribing', details: error.message });
+    });
   });
 });
 
-export default app;
+
+
+
+import { RefreshTokenRequest } from '@azure/msal-node';
+
+const configs: any = {
+  auth: {
+    clientId: OUTLOOK_CLIENT_ID,
+    authority: `https://login.microsoftonline.com/common`,
+    clientSecret: OUTLOOK_CLIENT_SECRET,
+  },
+};
+
+const cca1 = new ConfidentialClientApplication(configs);
+
+async function getNewAccessToken(refreshToken: string): Promise<{ accessToken: string, refreshToken?: string }> {
+  const refreshTokenRequest: RefreshTokenRequest = {
+    refreshToken,
+    scopes: ['https://graph.microsoft.com/.default'],
+  };
+
+  try {
+    const authResult: any = await cca1.acquireTokenByRefreshToken(refreshTokenRequest);
+    if (!authResult || !authResult.accessToken) {
+      throw new Error('Failed to acquire new access token');
+    }
+    return { accessToken: authResult.accessToken, refreshToken: authResult.refreshToken };
+  } catch (error) {
+    console.error('Error acquiring new access token:', error);
+    throw error;
+  }
+}
+
+app.get('/subscribe', ensureAuthenticated, async (req: Request, res: Response) => {
+  const user = req.user as User;
+
+  if (!user.refreshToken) {
+    return res.status(400).json({ message: 'No refresh token found' });
+  }
+
+  try {
+    // Get a new access token using the refresh token
+    const { accessToken, refreshToken } = await getNewAccessToken(user.refreshToken);
+
+    // Update user access token
+    user.accessToken = accessToken;
+
+    // Update the refresh token if a new one is returned
+    if (refreshToken) {
+      user.refreshToken = refreshToken;
+    }
+
+    const currentDate = new Date();
+    const expirationDate = new Date(currentDate);
+    expirationDate.setMinutes(currentDate.getMinutes() + 1000);
+
+    const subscriptionPayload = {
+      changeType: "created,updated,deleted",
+      notificationUrl: "https://8394-182-185-201-153.ngrok-free.app/api/notifications",
+      resource: "/me/messages",
+      expirationDateTime: expirationDate.toISOString(),
+      clientState: "SecretClientState"
+    };
+
+    const response = await axios.post('https://graph.microsoft.com/v1.0/subscriptions', subscriptionPayload, {
+      headers: {
+        Authorization: `Bearer ${user.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000 // Increase the timeout to 30 seconds
+    });
+
+    // Retrieve the user account document
+    const queryUserAccountCommand = `
+      curl -X GET "http://localhost:9200/user_accounts/_search" -H 'Content-Type: application/json' -d'
+      {
+        "query": {
+          "match": {
+            "account_email": "${user.email}"
+          }
+        }
+      }'
+    `;
+
+    exec(queryUserAccountCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error retrieving user account:', stderr);
+        return res.status(500).json({ message: 'Error retrieving user account', details: stderr });
+      }
+
+      const result = JSON.parse(stdout);
+      if (result.hits.total.value === 0) {
+        return res.status(404).json({ message: 'User account not found' });
+      }
+
+      const userAccountId = result.hits.hits[0]._id;
+      const userAccount = result.hits.hits[0]._source;
+
+      // Update the user account with the subscription details
+      if(!userAccount.subscriptionId){
+        userAccount.subscriptionId = response.data.id;
+      userAccount.accessToken = user.accessToken;
+      userAccount.refreshToken = user.refreshToken;
+      userAccount.expirationDateTime = response.data.expirationDateTime;
+
+      const updateUserAccountCommand = `
+        curl -X POST "http://localhost:9200/user_accounts/_doc/${userAccountId}" -H 'Content-Type: application/json' -d'
+        ${JSON.stringify(userAccount)}'
+      `;
+
+      exec(updateUserAccountCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Error updating user account:', stderr);
+          return res.status(500).json({ message: 'Error updating user account', details: stderr });
+        }
+
+        res.status(200).json({ message: 'Subscription added successfully' });
+      });
+      }
+    });
+  } catch (error: any) {
+    console.error('Error creating subscription:', error);
+
+    // Log additional details if available
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+    }
+
+    res.status(500).json({ message: 'Error creating subscription', details: error.message });
+  }
+});
+
+
+
+
+
+
+
+app.post('/api/notifications', async (req: Request, res: Response) => {
+  const validationToken = req.query.validationToken as string;
+
+  if (validationToken) {
+    console.log('Validation token received:', validationToken);
+    return res.status(200).send(validationToken);
+  }
+
+  console.log('Notification received:', req.body);
+  const notifications = req.body.value;
+
+  try {
+    const notificationPromises = notifications.map(async (notification: any) => {
+      const {
+        subscriptionId,
+        subscriptionExpirationDateTime,
+        changeType,
+        resource,
+        resourceData,
+        clientState,
+        tenantId
+      } = notification;
+
+      // Retrieve the user data using the subscription ID
+      const getUserDataCommand = `curl -X GET "http://localhost:9200/subscriptions/_doc/${subscriptionId}"`;
+
+      const userData = await new Promise<any>((resolve, reject) => {
+        exec(getUserDataCommand, (error, stdout, stderr) => {
+          if (error) {
+            console.error('Error retrieving user data:', stderr);
+            return reject(new Error('Error retrieving user data'));
+          }
+
+          resolve(JSON.parse(stdout)._source);
+        });
+      });
+
+      if (!userData) {
+        throw new Error('User data not found for subscription');
+      }
+
+      const { accessToken, refreshToken } = await getNewAccessToken(userData.refreshToken);
+
+      // Update user access token
+      userData.accessToken = accessToken;
+
+      // Update the refresh token if a new one is returned
+      if (refreshToken) {
+        userData.refreshToken = refreshToken;
+      }
+
+      // Process the notifications
+      if (changeType === 'created' || changeType === 'updated') {
+        // Fetch the updated message using the resource URL
+        const messageResponse = await axios.get(`https://graph.microsoft.com/v1.0/${resource}`, {
+          headers: {
+            Authorization: `Bearer ${userData.accessToken}`,
+          },
+        });
+
+        const message = messageResponse.data;
+        console.log(message)
+        // Index the message in Elasticsearch using curl
+        const emailDocument: any = {
+          account: userData.email,
+          subject: message.subject,
+          body: message.bodyPreview,
+          isRead: message.isRead,
+          datetime: message.CreatedDateTime,
+        };
+
+        const indexEmailCommand = `curl -X POST "http://localhost:9200/account_mails/_doc/${message.id}" -H "Content-Type: application/json" -d '${JSON.stringify(emailDocument)}'`;
+
+        await new Promise<void>((resolve, reject) => {
+          exec(indexEmailCommand, (error, stdout, stderr) => {
+            if (error) {
+              console.error('Error indexing message:', stderr);
+              return reject(new Error('Error indexing message'));
+            }
+
+            console.log('Indexed message:', stdout);
+            resolve();
+          });
+        });
+      }
+    });
+
+    await Promise.all(notificationPromises);
+    res.status(202).send('Notification received');
+  } catch (error: any) {
+    console.error('Error processing notifications:', error);
+    res.status(500).json({ message: 'Error processing notifications', details: error.message });
+  }
+});
+
+
+
+app.post('/api/lifecycle', (req: Request, res: Response) => {
+  console.log('Received notification:', req.body.value[0].resourceData);
+  res.status(202).send(); // Accepted
+});
+
+export default app
