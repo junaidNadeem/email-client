@@ -200,7 +200,7 @@ app.get('/initialFetch', ensureAuthenticated, async (req: Request, res: Response
 
     const bulkData = allEmails.map((email: any) => {
       const parsedEmail: any = {
-        account: user.email,
+        account_id: user.id,
         subject: email.Subject,
         body: email.BodyPreview,
         isRead: email.IsRead,
@@ -250,7 +250,7 @@ app.get('/emails', async (req: Request, res: Response) => {
       {
         "query": {
           "match": {
-            "account": "${user.email}"
+            "account_id": "${user.id}"
           }
         },
         "size": 1000
@@ -385,7 +385,7 @@ app.get('/subscribe', ensureAuthenticated, async (req: Request, res: Response) =
 
     const subscriptionPayload = {
       changeType: "created,updated,deleted",
-      notificationUrl: "https://8394-182-185-201-153.ngrok-free.app/api/notifications",
+      notificationUrl: "https://a906-182-185-201-153.ngrok-free.app/api/notifications",
       resource: "/me/messages",
       expirationDateTime: expirationDate.toISOString(),
       clientState: "SecretClientState"
@@ -467,7 +467,15 @@ app.get('/subscribe', ensureAuthenticated, async (req: Request, res: Response) =
 
 
 
-app.post('/api/notifications', async (req: Request, res: Response) => {
+const logFilePath = path.join(__dirname, 'email_notifications.log');
+
+const appendToFile = (data: string) => {
+  fs.appendFileSync(logFilePath, data + '\n')
+};
+
+ // Assuming you have these utility functions
+
+ app.post('/api/notifications', async (req: Request, res: Response) => {
   const validationToken = req.query.validationToken as string;
 
   if (validationToken) {
@@ -480,18 +488,17 @@ app.post('/api/notifications', async (req: Request, res: Response) => {
 
   try {
     const notificationPromises = notifications.map(async (notification: any) => {
-      const {
-        subscriptionId,
-        subscriptionExpirationDateTime,
-        changeType,
-        resource,
-        resourceData,
-        clientState,
-        tenantId
-      } = notification;
+      const { subscriptionId, changeType, resource } = notification;
 
-      // Retrieve the user data using the subscription ID
-      const getUserDataCommand = `curl -X GET "http://localhost:9200/subscriptions/_doc/${subscriptionId}"`;
+      console.log('Processing notification for subscriptionId:', subscriptionId);
+
+      const getUserDataCommand = `curl -X GET "http://localhost:9200/user_accounts/_search" -H "Content-Type: application/json" -d '{
+        "query": {
+          "match": {
+            "subscriptionId": "${subscriptionId}"
+          }
+        }
+      }'`;
 
       const userData = await new Promise<any>((resolve, reject) => {
         exec(getUserDataCommand, (error, stdout, stderr) => {
@@ -500,13 +507,24 @@ app.post('/api/notifications', async (req: Request, res: Response) => {
             return reject(new Error('Error retrieving user data'));
           }
 
-          resolve(JSON.parse(stdout)._source);
+          try {
+            const response = JSON.parse(stdout);
+            console.log('Elasticsearch response:', response);
+
+            if (!response.hits || !response.hits.total || response.hits.total.value === 0) {
+              console.error('User data not found for subscription:', subscriptionId);
+              return reject(new Error('User data not found for subscription'));
+            }
+
+            const user = response.hits.hits[0];
+            console.log('User data found:', user._source);
+            resolve({ _id: user._id, ...user._source });
+          } catch (parseError) {
+            console.error('Error parsing Elasticsearch response:', stdout);
+            return reject(new Error('Error parsing Elasticsearch response'));
+          }
         });
       });
-
-      if (!userData) {
-        throw new Error('User data not found for subscription');
-      }
 
       const { accessToken, refreshToken } = await getNewAccessToken(userData.refreshToken);
 
@@ -528,16 +546,17 @@ app.post('/api/notifications', async (req: Request, res: Response) => {
         });
 
         const message = messageResponse.data;
-        console.log(message)
-        // Index the message in Elasticsearch using curl
+
+        // Prepare the email document
         const emailDocument: any = {
-          account: userData.email,
+          account_id: userData._id,
           subject: message.subject,
           body: message.bodyPreview,
           isRead: message.isRead,
-          datetime: message.CreatedDateTime,
+          datetime: message.createdDateTime,
         };
 
+        // Index or update the message in Elasticsearch using curl
         const indexEmailCommand = `curl -X POST "http://localhost:9200/account_mails/_doc/${message.id}" -H "Content-Type: application/json" -d '${JSON.stringify(emailDocument)}'`;
 
         await new Promise<void>((resolve, reject) => {
@@ -547,7 +566,23 @@ app.post('/api/notifications', async (req: Request, res: Response) => {
               return reject(new Error('Error indexing message'));
             }
 
-            console.log('Indexed message:', stdout);
+            console.log('Indexed/Updated message:', stdout);
+            resolve();
+          });
+        });
+
+      } else if (changeType === 'deleted') {
+        // Delete the message from Elasticsearch
+        const deleteEmailCommand = `curl -X DELETE "http://localhost:9200/account_mails/_doc/${resource.split('/').pop()}"`;
+
+        await new Promise<void>((resolve, reject) => {
+          exec(deleteEmailCommand, (error, stdout, stderr) => {
+            if (error) {
+              console.error('Error deleting message:', stderr);
+              return reject(new Error('Error deleting message'));
+            }
+
+            console.log('Deleted message:', stdout);
             resolve();
           });
         });
@@ -555,10 +590,11 @@ app.post('/api/notifications', async (req: Request, res: Response) => {
     });
 
     await Promise.all(notificationPromises);
-    res.status(202).send('Notification received');
-  } catch (error: any) {
+
+    res.status(200).send('Notifications processed successfully');
+  } catch (error) {
     console.error('Error processing notifications:', error);
-    res.status(500).json({ message: 'Error processing notifications', details: error.message });
+    res.status(500).send('Error processing notifications');
   }
 });
 

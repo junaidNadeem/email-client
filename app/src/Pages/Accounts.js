@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios'
+import Button from '@mui/material/Button';
 
 function Accounts() {
   const [logged, setlogged] = useState(false)
@@ -18,7 +19,7 @@ function Accounts() {
    })
   return (
     <div>
-      <a href="http://localhost:3000/auth/outlook"><button disabled={logged} onClick={()=> setlogged(false)}>Log in</button></a>
+      <Button variant='contained' disabled={logged} onClick={()=> setlogged(false)}><a href="http://localhost:3000/auth/outlook">Log in</a></Button>
     </div>
   );
 }
