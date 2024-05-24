@@ -1,70 +1,75 @@
-# Getting Started with Create React App
+# Frontend React Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend of our application, built using React and Material-UI. The application interacts with a backend service to handle authentication, user accounts, and fetching emails. Before running this frontend application, ensure that the **backend service is up and running.**
 
-## Available Scripts
+## Table of Contents
 
-In the project directory, you can run:
+1. [Installation](#installation)
+2. [Running the Application](#running-the-application)
+3. [Project Structure](#project-structure)
+4. [Available Scripts](#available-scripts)
 
-### `npm start`
+## Installation
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Prerequisites
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Make sure you have Node.js and npm installed on your machine. You can download and install them from [Node.js](https://nodejs.org/).
 
-### `npm test`
+### Steps
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Get into app repository:
 
-### `npm run build`
+```bash
+cd app/
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. Install dependencies:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Running the Application
 
-### `npm run eject`
+Before starting the frontend application, ensure that the backend service is running. The backend service is expected to run on `http://localhost:3000`.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+To start the frontend application:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npm start
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+This will run the application in development mode. Open [http://localhost:3001](http://localhost:3001) to view it in your browser.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Project Structure
 
-## Learn More
+Here's an overview of the project's file structure:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `src/`
+  - `Pages/`
+    - `Accounts.js`: Handles user authentication and account linking.
+    - `Login.js`: Manages the login process using Auth0.
+    - `Mails.js`: Displays and manages the user's emails.
+    - `MainPage.js`: Main page component with navigation to different sections.
+  - `index.js`: Entry point for the React application.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### `Accounts.js`
 
-### Code Splitting
+Handles checking user authentication status and provides a button to log in using Outlook. 
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### `Login.js`
 
-### Analyzing the Bundle Size
+Uses Auth0 for authentication and navigates to the main page upon successful login.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### `Mails.js`
 
-### Making a Progressive Web App
+Fetches and displays emails. Handles user and account creation if not already done.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### `MainPage.js`
 
-### Advanced Configuration
+Main navigation component allowing users to switch between viewing mails and linking accounts.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Notes
 
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Ensure the backend service is running on `http://localhost:3000` before starting the frontend application.
+- The frontend application runs on `http://localhost:3001` by default.
