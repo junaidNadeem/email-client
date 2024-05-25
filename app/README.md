@@ -7,7 +7,6 @@ This is the frontend of our application, built using React and Material-UI. The 
 1. [Installation](#installation)
 2. [Running the Application](#running-the-application)
 3. [Project Structure](#project-structure)
-4. [Available Scripts](#available-scripts)
 
 ## Installation
 
