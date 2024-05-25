@@ -13,7 +13,7 @@ To get started with Email-Client, you must register your app in [Microsoft Azure
 9.  Give a description and click 'Add'
 10. Copy Secret ID, it will not be visible in the future.
 
-**Copy paste value of Client Id and Client Scret in app.ts**
+**Copy paste value of Client Id and Client Scret in config/azureConfig.ts**
 
 ## 3. Node
 install lastest version of [Node js](https://nodejs.org/en/download/package-manager) on your machine
@@ -47,7 +47,7 @@ For Windows:
 5. Put you app online:
 `ngrok http http://localhost:3000` or `ngrok http 3000`
 
-**Copy paste the generated link in app.ts**
+**Copy paste the generated link in config/azureConfig.ts**
 
 ## 3. Docker Setup
 
