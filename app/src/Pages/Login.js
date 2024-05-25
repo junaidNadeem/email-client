@@ -1,15 +1,14 @@
-import React, { useEffect } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useNavigate } from "react-router-dom";
+import { Typography, Button, Container, Box } from "@mui/material";
 
 function Login() {
   const { loginWithRedirect, isAuthenticated, user, logout } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
-
     if (isAuthenticated && user) {
-
       navigate(`/MainPage/`);
     }
   }, [isAuthenticated, user, navigate]);
@@ -24,12 +23,26 @@ function Login() {
       </div>
     );
   }
-
   return (
-    <div>
-      <h2>Please log in</h2>
-      <button onClick={() => loginWithRedirect()}>Log In</button>
-    </div>
+    <Container maxWidth="md">
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
+        <Typography variant="h2" gutterBottom>
+          Welcome to Email Client
+        </Typography>
+        <Typography variant="body1" paragraph align="center">
+          Access your emails with ease.
+        </Typography>
+        <Button onClick={loginWithRedirect} variant="contained" size="large" color="primary">
+          Get Started
+        </Button>
+      </Box>
+    </Container>
   );
 }
 

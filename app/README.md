@@ -1,6 +1,6 @@
 # Frontend React Application
 
-This is the frontend of our application, built using React and Material-UI. The application interacts with a backend service to handle authentication, user accounts, and fetching emails. Before running this frontend application, ensure that the **backend service is up and running.**
+This is the frontend of our application, built using React and Material-UI. The application interacts with a backend service to handle authentication, user accounts, and fetching emails. Before running this frontend application, ensure that the **backend service is up and running**.
 
 ## Table of Contents
 
@@ -17,17 +17,17 @@ Make sure you have Node.js and npm installed on your machine. You can download a
 
 ### Steps
 
-1. Get into app repository:
+1. Navigate to the app repository:
 
-```bash
-cd app/
-```
+   ```bash
+   cd app/
+   ```
 
 2. Install dependencies:
 
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
 ## Running the Application
 
@@ -55,7 +55,7 @@ Here's an overview of the project's file structure:
 
 ### `Accounts.js`
 
-Handles checking user authentication status and provides a button to log in using Outlook. 
+Handles checking user authentication status and provides a button to log in using Outlook.
 
 ### `Login.js`
 
