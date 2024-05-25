@@ -1,6 +1,8 @@
-import axios from 'axios';
 import { exec } from 'child_process';
-import { getNewAccessToken } from './tokenService';
+import { initializeClientWithAccessToken, updateAccessToken } from '../services/authService';
+import User from '../types/user';
+
+type UserWithId = User & { _id: string };
 
 export async function processNotification(notification: any) {
   const { subscriptionId, changeType, resource } = notification;
@@ -15,7 +17,7 @@ export async function processNotification(notification: any) {
     }
   }'`;
 
-  const userData = await new Promise<any>((resolve, reject) => {
+  const userData = await new Promise<UserWithId>((resolve, reject) => {
     exec(getUserDataCommand, (error, stdout, stderr) => {
       if (error) {
         console.error('Error retrieving user data:', stderr);
@@ -31,9 +33,9 @@ export async function processNotification(notification: any) {
           return reject(new Error('User data not found for subscription'));
         }
 
-        const user = response.hits.hits[0];
-        console.log('User data found:', user._source);
-        resolve({ _id: user._id, ...user._source });
+        const user = response.hits.hits[0]._source as User;
+        console.log('User data found:', user);
+        resolve({ _id: response.hits.hits[0]._id, ...user });
       } catch (parseError) {
         console.error('Error parsing Elasticsearch response:', stdout);
         return reject(new Error('Error parsing Elasticsearch response'));
@@ -41,51 +43,48 @@ export async function processNotification(notification: any) {
     });
   });
 
-  const { accessToken, refreshToken } = await getNewAccessToken(userData.refreshToken);
+  await updateAccessToken(userData);
 
-  // Update user access token
-  userData.accessToken = accessToken;
-
-  // Update the refresh token if a new one is returned
-  if (refreshToken) {
-    userData.refreshToken = refreshToken;
+  // Check if accessToken is defined
+  if (!userData.accessToken) {
+    throw new Error('Access token is undefined after update.');
   }
+
+  // Create an instance of the Microsoft Graph client
+  const client = initializeClientWithAccessToken(userData.accessToken);
 
   // Process the notifications
   if (changeType === 'created' || changeType === 'updated') {
-    // Fetch the updated message using the resource URL
-    const messageResponse = await axios.get(`https://graph.microsoft.com/v1.0/${resource}`, {
-      headers: {
-        Authorization: `Bearer ${userData.accessToken}`,
-      },
-    });
+    try {
+      // Fetch the updated message using the resource URL
+      const message = await client.api(resource).get();
 
-    const message = messageResponse.data;
+      // Prepare the email document
+      const emailDocument: any = {
+        account_id: userData._id,
+        subject: message.subject,
+        body: message.bodyPreview,
+        isRead: message.isRead,
+        datetime: message.createdDateTime,
+      };
 
-    // Prepare the email document
-    const emailDocument: any = {
-      account_id: userData._id,
-      subject: message.subject,
-      body: message.bodyPreview,
-      isRead: message.isRead,
-      datetime: message.createdDateTime,
-    };
+      // Index or update the message in Elasticsearch using curl
+      const indexEmailCommand = `curl -X POST "http://localhost:9200/account_mails/_doc/${message.id}" -H "Content-Type: application/json" -d '${JSON.stringify(emailDocument)}'`;
 
-    // Index or update the message in Elasticsearch using curl
-    const indexEmailCommand = `curl -X POST "http://localhost:9200/account_mails/_doc/${message.id}" -H "Content-Type: application/json" -d '${JSON.stringify(emailDocument)}'`;
+      await new Promise<void>((resolve, reject) => {
+        exec(indexEmailCommand, (error, stdout, stderr) => {
+          if (error) {
+            console.error('Error indexing message:', stderr);
+            return reject(new Error('Error indexing message'));
+          }
 
-    await new Promise<void>((resolve, reject) => {
-      exec(indexEmailCommand, (error, stdout, stderr) => {
-        if (error) {
-          console.error('Error indexing message:', stderr);
-          return reject(new Error('Error indexing message'));
-        }
-
-        console.log('Indexed/Updated message:', stdout);
-        resolve();
+          console.log('Indexed/Updated message:', stdout);
+          resolve();
+        });
       });
-    });
-
+    } catch (error) {
+      console.error('Error fetching message from Microsoft Graph:', error);
+    }
   } else if (changeType === 'deleted') {
     // Delete the message from Elasticsearch
     const deleteEmailCommand = `curl -X DELETE "http://localhost:9200/account_mails/_doc/${resource.split('/').pop()}"`;

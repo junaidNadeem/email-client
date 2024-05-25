@@ -1,25 +1,19 @@
-import axios from 'axios';
-import { exec } from 'child_process';
-import { getNewAccessToken } from './tokenService';
-import {NOTIFICATION_URL} from '../config/azureConfig'
+import { Client } from '@microsoft/microsoft-graph-client';
 import User from '../types/user';
-
+import { exec } from 'child_process';
+import { NOTIFICATION_URL } from '../config/azureConfig';
+import { updateAccessToken, initializeClientWithAccessToken } from '../services/authService';
 
 export async function createSubscription(user: User) {
-  if (!user.refreshToken) {
-    throw new Error('No refresh token found');
+  await updateAccessToken(user);
+
+  // Check if accessToken is defined
+  const accessToken = user.accessToken;
+  if (!accessToken) {
+    throw new Error('Access token is not available');
   }
 
-  // Get a new access token using the refresh token
-  const { accessToken, refreshToken } = await getNewAccessToken(user.refreshToken);
-
-  // Update user access token
-  user.accessToken = accessToken;
-
-  // Update the refresh token if a new one is returned
-  if (refreshToken) {
-    user.refreshToken = refreshToken;
-  }
+  const client = initializeClientWithAccessToken(accessToken);
 
   const currentDate = new Date();
   const expirationDate = new Date(currentDate);
@@ -33,16 +27,11 @@ export async function createSubscription(user: User) {
     clientState: "SecretClientState"
   };
 
-  const response = await axios.post('https://graph.microsoft.com/v1.0/subscriptions', subscriptionPayload, {
-    headers: {
-      Authorization: `Bearer ${user.accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    timeout: 30000 // Increase the timeout to 30 seconds
-  });
+  const response = await client.api('/subscriptions').post(subscriptionPayload);
 
-  return { user, subscriptionData: response.data };
+  return { user, subscriptionData: response };
 }
+
 
 export async function updateUserAccount(user: User, subscriptionData: any) {
   const queryUserAccountCommand = `

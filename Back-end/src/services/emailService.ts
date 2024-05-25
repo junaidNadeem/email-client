@@ -1,38 +1,46 @@
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import User from '../types/user';
-
+import { updateAccessToken, initializeClientWithAccessToken } from '../services/authService';
 
 export const fetchEmailsAndIndex = async (user: User) => {
+  await updateAccessToken(user);
+
+  // Check if accessToken is defined
+  const accessToken = user.accessToken;
+  if (!accessToken) {
+    throw new Error('Access token is not available');
+  }
+
+  const client = initializeClientWithAccessToken(accessToken);
+
   let allEmails: any[] = [];
-  let nextLink: string | null = `https://outlook.office.com/api/v2.0/me/messages`;
+  let response = await client.api('/me/messages').get();
 
-  while (nextLink) {
-    const response: any = await axios.get(nextLink, {
-      headers: {
-        'Authorization': `Bearer ${user.accessToken}`
-      }
-    });
+  while (response) {
+    allEmails.push(...response.value);
 
-    allEmails.push(...response.data.value);
-    nextLink = response.data['@odata.nextLink'] || null;
+    if (response['@odata.nextLink']) {
+      response = await client.api(response['@odata.nextLink']).get();
+    } else {
+      break;
+    }
   }
 
   const bulkData = allEmails.map((email: any) => {
     const parsedEmail: any = {
       account_id: user.id,
-      subject: email.Subject,
-      body: email.BodyPreview,
-      isRead: email.IsRead,
-      datetime: email.CreatedDateTime,
-      from: email.IsDraft ? null : email.From.EmailAddress,
-      to: email.IsDraft || !email.ToRecipients ? [] : email.ToRecipients.map((recipient: any) => recipient.EmailAddress),
+      subject: email.subject,
+      body: email.bodyPreview,
+      isRead: email.isRead,
+      datetime: email.receivedDateTime,
+      from: email.isDraft ? null : email.from.emailAddress,
+      to: email.isDraft || !email.toRecipients ? [] : email.toRecipients.map((recipient: any) => recipient.emailAddress),
     };
 
     return [
-      JSON.stringify({ index: { _index: 'account_mails', _id: email.Id } }),
+      JSON.stringify({ index: { _index: 'account_mails', _id: email.id } }),
       JSON.stringify(parsedEmail)
     ].join('\n');
   }).join('\n') + '\n';
@@ -57,7 +65,8 @@ export const fetchEmailsAndIndex = async (user: User) => {
       }
     });
   });
-};
+}
+
 
 export const queryEmails = async (userId: string) => {
   const query = `
