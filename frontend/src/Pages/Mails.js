@@ -22,10 +22,10 @@ function Mails() {
   const { user, isAuthenticated: auth0Authenticated } = useAuth0();
 
   const userCreationAttempted = useRef(
-    sessionStorage.getItem('UserCreationAttempted') === 'true',
+    sessionStorage.getItem('UserCreationAttempted') === 'true'
   );
   const accountCreationAttempted = useRef(
-    sessionStorage.getItem('AccountCreationAttempted') === 'true',
+    sessionStorage.getItem('AccountCreationAttempted') === 'true'
   );
 
   const checkAuthentication = async () => {
@@ -34,7 +34,7 @@ function Mails() {
         'http://localhost:3000/isAuthenticated',
         {
           withCredentials: true,
-        },
+        }
       );
       setIsAuthenticated(response.data.isAuthenticated);
     } catch (error) {
@@ -56,7 +56,7 @@ function Mails() {
       const data = await response.json();
       // Sort emails by creationDateTime before setting the state
       const sortedEmails = data.sort(
-        (a, b) => new Date(b.datetime) - new Date(a.datetime),
+        (a, b) => new Date(b.datetime) - new Date(a.datetime)
       );
       setEmails(sortedEmails);
     } catch (error) {
@@ -76,7 +76,7 @@ function Mails() {
             name: user.nickname,
             number: user.phone_number || 'null',
           },
-        },
+        }
       );
       if (response.status === 201) {
         sessionStorage.setItem('UserCreationAttempted', 'true');

@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
-import { useNavigate } from "react-router-dom";
-import { Typography, Button, Container, Box } from "@mui/material";
+import React, { useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useNavigate } from 'react-router-dom';
+import { Typography, Button, Container, Box } from '@mui/material';
 
 function Login() {
   const { loginWithRedirect, isAuthenticated, user, logout } = useAuth0();
@@ -19,7 +19,9 @@ function Login() {
         <h2>Welcome, {user.name}</h2>
         <img src={user.picture} alt={user.name} />
         <p>{user.email}</p>
-        <button onClick={() => logout({ returnTo: window.location.origin })}>Log Out</button>
+        <button onClick={() => logout({ returnTo: window.location.origin })}>
+          Log Out
+        </button>
       </div>
     );
   }
@@ -38,7 +40,12 @@ function Login() {
         <Typography variant="body1" paragraph align="center">
           Access your emails with ease.
         </Typography>
-        <Button onClick={loginWithRedirect} variant="contained" size="large" color="primary">
+        <Button
+          onClick={loginWithRedirect}
+          variant="contained"
+          size="large"
+          color="primary"
+        >
           Get Started
         </Button>
       </Box>
