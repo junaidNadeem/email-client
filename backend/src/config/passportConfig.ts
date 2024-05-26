@@ -2,11 +2,7 @@ import passport from 'passport';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const OutlookStrategy: any = require('passport-outlook').Strategy;
 import { Request } from 'express';
-import {
-  OUTLOOK_CLIENT_ID,
-  OUTLOOK_CLIENT_SECRET,
-  OUTLOOK_CALLBACK_URL,
-} from './azureConfig';
+import { OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_CALLBACK_URL } from './azureConfig';
 
 import User from '../types/user';
 

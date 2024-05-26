@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Mails from './Mails';
-import Accounts from './Accounts';
+import Mails from './mails';
+import Accounts from './accounts';
 import { Button, Box } from '@mui/material';
 
 function MainPage() {
@@ -33,7 +33,7 @@ function MainPage() {
             onClick={() => handlePageChange('link-account')}
             size="large"
           >
-            Link Account
+            Link Email Client
           </Button>
         </Box>
       </Box>

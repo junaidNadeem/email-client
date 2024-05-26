@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React from 'react';
+import useAuth from '../hooks/useAuth';
+import useEmails from '../hooks/useEmails';
+import { createUser, createAccount } from '../services/apiService';
 import { useAuth0 } from '@auth0/auth0-react';
+
 import {
   Button,
   Typography,
@@ -15,128 +19,41 @@ import {
   Box,
 } from '@mui/material';
 
-function Mails() {
-  const [emails, setEmails] = useState([]);
+const Mails = () => {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { user, isAuthenticated: auth0Authenticated } = useAuth0();
+  const { user, isAuthenticated: isAuth0Authenticated } = useAuth0();
+  const { isAuthenticated } = useAuth();
+  const { emails, fetchEmails } = useEmails(isAuthenticated);
 
-  const userCreationAttempted = useRef(
-    sessionStorage.getItem('UserCreationAttempted') === 'true'
-  );
-  const accountCreationAttempted = useRef(
-    sessionStorage.getItem('AccountCreationAttempted') === 'true'
-  );
+  const isUserCreated = useRef(sessionStorage.getItem('isUserCreated') === 'true');
+  const isAccountCreated = useRef(sessionStorage.getItem('isAccountCreated') === 'true');
 
-  const checkAuthentication = async () => {
-    try {
-      const response = await axios.get(
-        'http://localhost:3000/isAuthenticated',
-        {
-          withCredentials: true,
+  useEffect(() => {
+    const createUserAndAccount = async () => {
+      if (!isAuthenticated) return;
+
+      if (isAuth0Authenticated && user) {
+        if (!isUserCreated.current) {
+          const userCreated = await createUser(user);
+          isUserCreated.current = userCreated;
+          sessionStorage.setItem('isUserCreated', 'true');
         }
-      );
-      setIsAuthenticated(response.data.isAuthenticated);
-    } catch (error) {
-      console.error('Error checking authentication status:', error);
-      navigate('/');
-    }
-  };
-
-  const fetchEmails = async () => {
-    try {
-      const response = await fetch('http://localhost:3000/emails', {
-        credentials: 'include',
-      });
-      if (response.redirected) {
+        if (!isAccountCreated.current) {
+          const accountCreated = await createAccount(user.sub);
+          isAccountCreated.current = accountCreated;
+          sessionStorage.setItem('isAccountCreated', 'true');
+        }
+      } else {
         navigate('/');
-      } else if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
-      // Sort emails by creationDateTime before setting the state
-      const sortedEmails = data.sort(
-        (a, b) => new Date(b.datetime) - new Date(a.datetime)
-      );
-      setEmails(sortedEmails);
-    } catch (error) {
-      console.error('Error fetching emails:', error);
-    }
-  };
-
-  const createUser = async () => {
-    try {
-      const response = await axios.post(
-        'http://localhost:3000/createuser',
-        null,
-        {
-          headers: {
-            id: user.sub,
-            email: user.email,
-            name: user.nickname,
-            number: user.phone_number || 'null',
-          },
-        }
-      );
-      if (response.status === 201) {
-        sessionStorage.setItem('UserCreationAttempted', 'true');
-      } else {
-        console.error('Failed to create user', response);
-      }
-    } catch (error) {
-      console.error('Error creating user:', error);
-    }
-  };
-
-  const createAccount = async () => {
-    try {
-      const response = await axios.get('http://localhost:3000/createaccount', {
-        headers: {
-          user_id: user.sub,
-        },
-        withCredentials: true,
-      });
-      if (response.status === 201) {
-        sessionStorage.setItem('AccountCreationAttempted', 'true');
-      } else {
-        console.error('Failed to create account', response);
-      }
-    } catch (error) {
-      console.error('Error creating account:', error);
-    }
-  };
-
-  const handleRefresh = () => {
-    // Simply refetch emails to refresh the component
-    fetchEmails();
-  };
-
-  useEffect(() => {
-    checkAuthentication();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchEmails();
-    }
-  }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    const handleUserAndAccountCreation = async () => {
-      if (auth0Authenticated && isAuthenticated) {
-        if (!userCreationAttempted.current) {
-          await createUser();
-          userCreationAttempted.current = true;
-        }
-        if (!accountCreationAttempted.current) {
-          await createAccount();
-          accountCreationAttempted.current = true;
-        }
       }
     };
 
-    handleUserAndAccountCreation();
-  }, [auth0Authenticated, isAuthenticated, user]);
+    createUserAndAccount();
+  }, [isAuth0Authenticated, isAuthenticated, user, navigate]);
+
+  const handleRefresh = () => {
+    fetchEmails();
+  };
 
   return (
     <div>
@@ -150,11 +67,7 @@ function Mails() {
         <Typography variant="h4" gutterBottom>
           Mails
         </Typography>
-        <Button
-          variant="contained"
-          onClick={handleRefresh}
-          sx={{ marginBottom: 2 }}
-        >
+        <Button variant="contained" onClick={handleRefresh} sx={{ marginBottom: 2 }}>
           Refresh
         </Button>
       </Box>
@@ -174,9 +87,7 @@ function Mails() {
                 <TableCell>{email.subject}</TableCell>
                 <TableCell>{email.body}</TableCell>
                 <TableCell>{email.isRead ? 'Yes' : 'No'}</TableCell>
-                <TableCell>
-                  {new Date(email.datetime).toLocaleString()}
-                </TableCell>
+                <TableCell>{new Date(email.datetime).toLocaleString()}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -184,6 +95,6 @@ function Mails() {
       </TableContainer>
     </div>
   );
-}
+};
 
 export default Mails;

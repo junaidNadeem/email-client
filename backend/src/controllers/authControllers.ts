@@ -2,12 +2,7 @@ import { Request, Response } from 'express';
 import passport from 'passport';
 
 export const authenticateOutlook = passport.authenticate('windowslive', {
-  scope: [
-    'openid',
-    'profile',
-    'offline_access',
-    'https://outlook.office.com/Mail.Read',
-  ],
+  scope: ['openid', 'profile', 'offline_access', 'https://outlook.office.com/Mail.Read'],
 });
 
 export const outlookCallback = [

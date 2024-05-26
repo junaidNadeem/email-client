@@ -1,28 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
+import React from 'react';
+import { Button, Typography, Box } from '@mui/material';
+import useAuth from '../hooks/useAuth';
 
-function Accounts() {
-  const [logged, setLogged] = useState(false);
+const Accounts = () => {
+  const { isAuthenticated, resetAuthStatus } = useAuth();
 
-  useEffect(() => {
-    checkAuthentication();
-  }, []);
-
-  const checkAuthentication = async () => {
-    try {
-      const response = await axios.get(
-        'http://localhost:3000/isAuthenticated',
-        {
-          withCredentials: true,
-        }
-      );
-      setLogged(response.data.isAuthenticated);
-    } catch (error) {
-      console.error('Error checking authentication status:', error);
-    }
+  const handleOnClick = () => {
+    resetAuthStatus();
   };
 
   return (
@@ -36,13 +20,13 @@ function Accounts() {
       }}
     >
       <Typography variant="h4" gutterBottom>
-        {logged ? 'You are logged in' : 'You are not logged in'}
+        {isAuthenticated ? 'You are logged in' : 'You are not logged in'}
       </Typography>
       <Button
         variant="contained"
         color="primary"
-        disabled={logged}
-        onClick={() => setLogged(true)}
+        disabled={isAuthenticated}
+        onClick={handleOnClick}
         sx={{ marginTop: '16px' }}
       >
         <a
@@ -50,10 +34,10 @@ function Accounts() {
           style={{ textDecoration: 'none', color: 'inherit' }}
         >
           Log in with Outlook
-        </a>{' '}
+        </a>
       </Button>
     </Box>
   );
-}
+};
 
 export default Accounts;

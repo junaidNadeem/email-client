@@ -6,8 +6,7 @@ import User from '../types/user';
 
 export const fetchEmailsAndIndex = async (user: User) => {
   const allEmails: any[] = [];
-  let nextLink: string | null =
-    'https://outlook.office.com/api/v2.0/me/messages';
+  let nextLink: string | null = 'https://outlook.office.com/api/v2.0/me/messages';
 
   while (nextLink) {
     const response: any = await axios.get(nextLink, {
@@ -33,9 +32,7 @@ export const fetchEmailsAndIndex = async (user: User) => {
           to:
             email.IsDraft || !email.ToRecipients
               ? []
-              : email.ToRecipients?.map(
-                  (recipient: any) => recipient.EmailAddress,
-                ),
+              : email.ToRecipients?.map((recipient: any) => recipient.EmailAddress),
         };
 
         return [
@@ -87,11 +84,7 @@ export const queryEmails = async (userId: string) => {
       }
 
       const result = JSON.parse(stdout);
-      if (
-        !result.hits ||
-        !result.hits.hits ||
-        !Array.isArray(result.hits.hits)
-      ) {
+      if (!result.hits || !result.hits.hits || !Array.isArray(result.hits.hits)) {
         console.error('Invalid data format received:', result);
         reject(new Error('Invalid data format received'));
       }

@@ -10,9 +10,7 @@ export async function createSubscription(user: User) {
   }
 
   // Get a new access token using the refresh token
-  const { accessToken, refreshToken } = await getNewAccessToken(
-    user.refreshToken,
-  );
+  const { accessToken, refreshToken } = await getNewAccessToken(user.refreshToken);
 
   // Update user access token
   user.accessToken = accessToken;

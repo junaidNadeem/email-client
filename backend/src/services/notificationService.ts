@@ -25,15 +25,8 @@ export async function processNotification(notification: any) {
       try {
         const response = JSON.parse(stdout);
 
-        if (
-          !response.hits ||
-          !response.hits.total ||
-          response.hits.total.value === 0
-        ) {
-          console.error(
-            'User data not found for subscription:',
-            subscriptionId,
-          );
+        if (!response.hits || !response.hits.total || response.hits.total.value === 0) {
+          console.error('User data not found for subscription:', subscriptionId);
           return reject(new Error('User data not found for subscription'));
         }
 
@@ -46,9 +39,7 @@ export async function processNotification(notification: any) {
     });
   });
 
-  const { accessToken, refreshToken } = await getNewAccessToken(
-    userData.refreshToken,
-  );
+  const { accessToken, refreshToken } = await getNewAccessToken(userData.refreshToken);
 
   // Update user access token
   userData.accessToken = accessToken;
@@ -61,14 +52,11 @@ export async function processNotification(notification: any) {
   // Process the notifications
   if (changeType === 'created' || changeType === 'updated') {
     // Fetch the updated message using the resource URL
-    const messageResponse = await axios.get(
-      `https://graph.microsoft.com/v1.0/${resource}`,
-      {
-        headers: {
-          Authorization: `Bearer ${userData.accessToken}`,
-        },
+    const messageResponse = await axios.get(`https://graph.microsoft.com/v1.0/${resource}`, {
+      headers: {
+        Authorization: `Bearer ${userData.accessToken}`,
       },
-    );
+    });
 
     const message = messageResponse.data;
 
@@ -90,6 +78,7 @@ export async function processNotification(notification: any) {
           console.error('Error indexing message:', stderr);
           return reject(new Error('Error indexing message'));
         }
+        console.log('Email Created/Updated Successfully For ID:', subscriptionId);
 
         resolve();
       });
@@ -104,7 +93,7 @@ export async function processNotification(notification: any) {
           console.error('Error deleting message:', stderr);
           return reject(new Error('Error deleting message'));
         }
-
+        console.log('Email Deleted Successfully.');
         resolve();
       });
     });

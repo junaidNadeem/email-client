@@ -28,8 +28,6 @@ export const queryEmailsController = async (req: Request, res: Response) => {
     res.json(emails);
   } catch (error: any) {
     console.error('Error querying emails:', error);
-    res
-      .status(500)
-      .json({ message: 'Error querying emails', details: error.message });
+    res.status(500).json({ message: 'Error querying emails', details: error.message });
   }
 };

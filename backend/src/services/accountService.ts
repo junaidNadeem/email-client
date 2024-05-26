@@ -34,8 +34,7 @@ export function createAccount(
             Cookie: cookie, // Pass cookies to maintain the session
           },
         })
-        .then((response) => {
-          console.info({ response });
+        .then(() => {
           resolve({
             message: 'Account created and subscription added successfully',
             account: newAccount,

@@ -16,7 +16,8 @@
   "rules": {
     "prettier/prettier": "error",
     "react/prop-types": "off",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "max-len": "off"
   },
   "env": {
     "browser": true,
