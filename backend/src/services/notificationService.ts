@@ -24,15 +24,20 @@ export async function processNotification(notification: any) {
 
       try {
         const response = JSON.parse(stdout);
-        console.log('Elasticsearch response:', response);
 
-        if (!response.hits || !response.hits.total || response.hits.total.value === 0) {
-          console.error('User data not found for subscription:', subscriptionId);
+        if (
+          !response.hits ||
+          !response.hits.total ||
+          response.hits.total.value === 0
+        ) {
+          console.error(
+            'User data not found for subscription:',
+            subscriptionId,
+          );
           return reject(new Error('User data not found for subscription'));
         }
 
         const user = response.hits.hits[0];
-        console.log('User data found:', user._source);
         resolve({ _id: user._id, ...user._source });
       } catch (parseError) {
         console.error('Error parsing Elasticsearch response:', stdout);
@@ -41,7 +46,9 @@ export async function processNotification(notification: any) {
     });
   });
 
-  const { accessToken, refreshToken } = await getNewAccessToken(userData.refreshToken);
+  const { accessToken, refreshToken } = await getNewAccessToken(
+    userData.refreshToken,
+  );
 
   // Update user access token
   userData.accessToken = accessToken;
@@ -54,11 +61,14 @@ export async function processNotification(notification: any) {
   // Process the notifications
   if (changeType === 'created' || changeType === 'updated') {
     // Fetch the updated message using the resource URL
-    const messageResponse = await axios.get(`https://graph.microsoft.com/v1.0/${resource}`, {
-      headers: {
-        Authorization: `Bearer ${userData.accessToken}`,
+    const messageResponse = await axios.get(
+      `https://graph.microsoft.com/v1.0/${resource}`,
+      {
+        headers: {
+          Authorization: `Bearer ${userData.accessToken}`,
+        },
       },
-    });
+    );
 
     const message = messageResponse.data;
 
@@ -81,11 +91,9 @@ export async function processNotification(notification: any) {
           return reject(new Error('Error indexing message'));
         }
 
-        console.log('Indexed/Updated message:', stdout);
         resolve();
       });
     });
-
   } else if (changeType === 'deleted') {
     // Delete the message from Elasticsearch
     const deleteEmailCommand = `curl -X DELETE "http://localhost:9200/account_mails/_doc/${resource.split('/').pop()}"`;
@@ -97,7 +105,6 @@ export async function processNotification(notification: any) {
           return reject(new Error('Error deleting message'));
         }
 
-        console.log('Deleted message:', stdout);
         resolve();
       });
     });

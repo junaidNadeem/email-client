@@ -1,33 +1,34 @@
-import express from "express";
-import passport from "passport";
-import session from "express-session";
-import cors from "cors";
-import "isomorphic-fetch";
-const OutlookStrategy = require("passport-outlook").Strategy;
+import express from 'express';
+import passport from 'passport';
+import session from 'express-session';
+import cors from 'cors';
+import 'isomorphic-fetch';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const OutlookStrategy = require('passport-outlook').Strategy;
 
 import {
   OUTLOOK_CLIENT_ID,
   OUTLOOK_CLIENT_SECRET,
   OUTLOOK_CALLBACK_URL,
-} from "./config/azureConfig";
+} from './config/azureConfig';
 
-import User from "./types/user";
+import User from './types/user';
 
 //Routes import
-import authRoutes from "./routes/authRoutes";
-import accountRoutes from "./routes/accountRoutes";
-import userRoutes from "./routes/userRoutes";
-import emailRoutes from "./routes/emailRoutes";
-import subscriptionRoutes from "./routes/subscriptionRoutes";
-import notificationRoutes from "./routes/notificationRoutes";
+import authRoutes from './routes/authRoutes';
+import accountRoutes from './routes/accountRoutes';
+import userRoutes from './routes/userRoutes';
+import emailRoutes from './routes/emailRoutes';
+import subscriptionRoutes from './routes/subscriptionRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3001",
+    origin: 'http://localhost:3001',
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -55,7 +56,7 @@ passport.use(
       accessToken: string,
       refreshToken: string,
       profile: any,
-      done: (error: any, user?: any) => void
+      done: (error: any, user?: any) => void,
     ) => {
       const user: User = {
         id: profile.id,
@@ -64,19 +65,19 @@ passport.use(
         refreshToken,
       };
       return done(null, user);
-    }
-  )
+    },
+  ),
 );
 
-app.use(session({ secret: "secret", resave: false, saveUninitialized: true }));
+app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 
 //Routes
-app.use("/", authRoutes);
-app.use("/", userRoutes);
-app.use("/", emailRoutes);
-app.use("/", notificationRoutes);
+app.use('/', authRoutes);
+app.use('/', userRoutes);
+app.use('/', emailRoutes);
+app.use('/', notificationRoutes);
 app.use(accountRoutes);
 app.use(subscriptionRoutes);
 

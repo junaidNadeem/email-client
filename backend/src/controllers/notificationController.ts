@@ -5,7 +5,6 @@ export const notificationHandler = async (req: Request, res: Response) => {
   const validationToken = req.query.validationToken as string;
 
   if (validationToken) {
-    console.log('Validation token received:', validationToken);
     return res.status(200).send(validationToken);
   }
 
@@ -13,7 +12,9 @@ export const notificationHandler = async (req: Request, res: Response) => {
   const notifications = req.body.value;
 
   try {
-    const notificationPromises = notifications.map((notification: any) => processNotification(notification));
+    const notificationPromises = notifications.map((notification: any) =>
+      processNotification(notification),
+    );
     await Promise.all(notificationPromises);
 
     res.status(200).send('Notifications processed successfully');

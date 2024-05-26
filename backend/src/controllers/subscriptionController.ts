@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
-import { createSubscription, updateUserAccount } from '../services/subscriptionService';
+import {
+  createSubscription,
+  updateUserAccount,
+} from '../services/subscriptionService';
 import User from '../types/user';
 
 export const subscribeHandler = async (req: Request, res: Response) => {
@@ -7,7 +10,8 @@ export const subscribeHandler = async (req: Request, res: Response) => {
     const user = req.user as User;
 
     // Create subscription
-    const { user: updatedUser, subscriptionData } = await createSubscription(user);
+    const { user: updatedUser, subscriptionData } =
+      await createSubscription(user);
 
     // Update user account in Elasticsearch
     await updateUserAccount(updatedUser, subscriptionData);
@@ -23,6 +27,8 @@ export const subscribeHandler = async (req: Request, res: Response) => {
       console.error('Response headers:', error.response.headers);
     }
 
-    res.status(500).json({ message: 'Error creating subscription', details: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error creating subscription', details: error.message });
   }
 };

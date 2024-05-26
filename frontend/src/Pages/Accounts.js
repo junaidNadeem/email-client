@@ -8,19 +8,19 @@ function Accounts() {
   const [logged, setLogged] = useState(false);
 
   useEffect(() => {
-    const checkAuthentication = async () => {
-      try {
-        const response = await axios.get("http://localhost:3000/isAuthenticated", {
-          withCredentials: true,
-        });
-        setLogged(response.data.isAuthenticated);
-      } catch (error) {
-        console.error("Error checking authentication status:", error);
-      }
-    };
-
     checkAuthentication();
   }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const response = await axios.get("http://localhost:3000/isAuthenticated", {
+        withCredentials: true,
+      });
+      setLogged(response.data.isAuthenticated);
+    } catch (error) {
+      console.error("Error checking authentication status:", error);
+    }
+  };
 
   return (
     <Box
@@ -42,7 +42,12 @@ function Accounts() {
         onClick={() => setLogged(true)}
         sx={{ marginTop: "16px" }}
       >
-        Log in with Outlook
+        <a
+          href="http://localhost:3000/auth/outlook"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          Log in with Outlook
+        </a>{" "}
       </Button>
     </Box>
   );

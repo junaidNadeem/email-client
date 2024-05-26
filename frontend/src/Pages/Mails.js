@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { useAuth0 } from "@auth0/auth0-react";
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth0 } from '@auth0/auth0-react';
 import {
   Button,
   Typography,
@@ -13,7 +13,7 @@ import {
   TableRow,
   Paper,
   Box,
-} from "@mui/material";
+} from '@mui/material';
 
 function Mails() {
   const [emails, setEmails] = useState([]);
@@ -21,77 +21,88 @@ function Mails() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { user, isAuthenticated: auth0Authenticated } = useAuth0();
 
-  const userCreationAttempted = useRef(sessionStorage.getItem("UserCreationAttempted") === "true");
+  const userCreationAttempted = useRef(
+    sessionStorage.getItem('UserCreationAttempted') === 'true',
+  );
   const accountCreationAttempted = useRef(
-    sessionStorage.getItem("AccountCreationAttempted") === "true"
+    sessionStorage.getItem('AccountCreationAttempted') === 'true',
   );
 
   const checkAuthentication = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/isAuthenticated", {
-        withCredentials: true,
-      });
+      const response = await axios.get(
+        'http://localhost:3000/isAuthenticated',
+        {
+          withCredentials: true,
+        },
+      );
       setIsAuthenticated(response.data.isAuthenticated);
     } catch (error) {
-      console.error("Error checking authentication status:", error);
-      navigate("/");
+      console.error('Error checking authentication status:', error);
+      navigate('/');
     }
   };
 
   const fetchEmails = async () => {
     try {
-      const response = await fetch("http://localhost:3000/emails", { credentials: "include" });
+      const response = await fetch('http://localhost:3000/emails', {
+        credentials: 'include',
+      });
       if (response.redirected) {
-        navigate("/");
+        navigate('/');
       } else if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error('Network response was not ok');
       }
       const data = await response.json();
       // Sort emails by creationDateTime before setting the state
-      const sortedEmails = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+      const sortedEmails = data.sort(
+        (a, b) => new Date(b.datetime) - new Date(a.datetime),
+      );
       setEmails(sortedEmails);
     } catch (error) {
-      console.error("Error fetching emails:", error);
+      console.error('Error fetching emails:', error);
     }
   };
 
   const createUser = async () => {
     try {
-      const response = await axios.post("http://localhost:3000/createuser", null, {
-        headers: {
-          id: user.sub,
-          email: user.email,
-          name: user.nickname,
-          number: user.phone_number || "null",
+      const response = await axios.post(
+        'http://localhost:3000/createuser',
+        null,
+        {
+          headers: {
+            id: user.sub,
+            email: user.email,
+            name: user.nickname,
+            number: user.phone_number || 'null',
+          },
         },
-      });
+      );
       if (response.status === 201) {
-        console.log("User created successfully");
-        sessionStorage.setItem("UserCreationAttempted", "true");
+        sessionStorage.setItem('UserCreationAttempted', 'true');
       } else {
-        console.error("Failed to create user", response);
+        console.error('Failed to create user', response);
       }
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error('Error creating user:', error);
     }
   };
 
   const createAccount = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/createaccount", {
+      const response = await axios.get('http://localhost:3000/createaccount', {
         headers: {
           user_id: user.sub,
         },
         withCredentials: true,
       });
       if (response.status === 201) {
-        console.log("Account created successfully");
-        sessionStorage.setItem("AccountCreationAttempted", "true");
+        sessionStorage.setItem('AccountCreationAttempted', 'true');
       } else {
-        console.error("Failed to create account", response);
+        console.error('Failed to create account', response);
       }
     } catch (error) {
-      console.error("Error creating account:", error);
+      console.error('Error creating account:', error);
     }
   };
 
@@ -139,14 +150,18 @@ function Mails() {
         <Typography variant="h4" gutterBottom>
           Mails
         </Typography>
-        <Button variant="contained" onClick={handleRefresh} sx={{ marginBottom: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleRefresh}
+          sx={{ marginBottom: 2 }}
+        >
           Refresh
         </Button>
       </Box>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableRow sx={{ fontWeight: "bold" }}>
+            <TableRow sx={{ fontWeight: 'bold' }}>
               <TableCell>Subject</TableCell>
               <TableCell>Body Preview</TableCell>
               <TableCell>Is Read</TableCell>
@@ -158,8 +173,10 @@ function Mails() {
               <TableRow key={index}>
                 <TableCell>{email.subject}</TableCell>
                 <TableCell>{email.body}</TableCell>
-                <TableCell>{email.isRead ? "Yes" : "No"}</TableCell>
-                <TableCell>{new Date(email.datetime).toLocaleString()}</TableCell>
+                <TableCell>{email.isRead ? 'Yes' : 'No'}</TableCell>
+                <TableCell>
+                  {new Date(email.datetime).toLocaleString()}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

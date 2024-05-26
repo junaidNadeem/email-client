@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { exec } from 'child_process';
 import { getNewAccessToken } from './tokenService';
-import {NOTIFICATION_URL} from '../config/azureConfig'
+import { NOTIFICATION_URL } from '../config/azureConfig';
 import User from '../types/user';
-
 
 export async function createSubscription(user: User) {
   if (!user.refreshToken) {
@@ -11,7 +10,9 @@ export async function createSubscription(user: User) {
   }
 
   // Get a new access token using the refresh token
-  const { accessToken, refreshToken } = await getNewAccessToken(user.refreshToken);
+  const { accessToken, refreshToken } = await getNewAccessToken(
+    user.refreshToken,
+  );
 
   // Update user access token
   user.accessToken = accessToken;
@@ -26,20 +27,24 @@ export async function createSubscription(user: User) {
   expirationDate.setMinutes(currentDate.getMinutes() + 1000);
 
   const subscriptionPayload = {
-    changeType: "created,updated,deleted",
+    changeType: 'created,updated,deleted',
     notificationUrl: `${NOTIFICATION_URL}/api/notifications`,
-    resource: "/me/messages",
+    resource: '/me/messages',
     expirationDateTime: expirationDate.toISOString(),
-    clientState: "SecretClientState"
+    clientState: 'SecretClientState',
   };
 
-  const response = await axios.post('https://graph.microsoft.com/v1.0/subscriptions', subscriptionPayload, {
-    headers: {
-      Authorization: `Bearer ${user.accessToken}`,
-      'Content-Type': 'application/json'
+  const response = await axios.post(
+    'https://graph.microsoft.com/v1.0/subscriptions',
+    subscriptionPayload,
+    {
+      headers: {
+        Authorization: `Bearer ${user.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000, // Increase the timeout to 30 seconds
     },
-    timeout: 30000 // Increase the timeout to 30 seconds
-  });
+  );
 
   return { user, subscriptionData: response.data };
 }

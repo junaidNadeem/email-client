@@ -3,7 +3,11 @@ import axios from 'axios';
 import User from '../types/user';
 import NewAccount from '../types/newAccount';
 
-export function createAccount(user: User, userId: string, cookie: string): Promise<{ message: string, account?: NewAccount, details?: string }> {
+export function createAccount(
+  user: User,
+  userId: string,
+  cookie: string,
+): Promise<{ message: string; account?: NewAccount; details?: string }> {
   return new Promise((resolve, reject) => {
     const newAccount: NewAccount = {
       account_email: user.email,
@@ -24,18 +28,26 @@ export function createAccount(user: User, userId: string, cookie: string): Promi
       }
 
       // After creating the account, call the /subscribe endpoint
-      axios.get('http://localhost:3000/subscribe', {
-        headers: {
-          Cookie: cookie // Pass cookies to maintain the session
-        }
-      })
-      .then((response) => {
-        resolve({ message: 'Account created and subscription added successfully', account: newAccount });
-      })
-      .catch((error) => {
-        console.error('Error calling /subscribe:', error);
-        reject({ message: 'Account created but error subscribing', details: error.message });
-      });
+      axios
+        .get('http://localhost:3000/subscribe', {
+          headers: {
+            Cookie: cookie, // Pass cookies to maintain the session
+          },
+        })
+        .then((response) => {
+          console.info({ response });
+          resolve({
+            message: 'Account created and subscription added successfully',
+            account: newAccount,
+          });
+        })
+        .catch((error) => {
+          console.error('Error calling /subscribe:', error);
+          reject({
+            message: 'Account created but error subscribing',
+            details: error.message,
+          });
+        });
     });
   });
 }

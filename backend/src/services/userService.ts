@@ -1,10 +1,13 @@
 import { exec } from 'child_process';
 import User from '../types/user';
 
-
-
 // Define the function to create a new user
-export function createUser(id: string, email: string, name: string, number: string): Promise<{ message: string, user?: User, details?: string }> {
+export function createUser(
+  id: string,
+  email: string,
+  name: string,
+  number: string,
+): Promise<{ message: string; user?: User; details?: string }> {
   return new Promise((resolve, reject) => {
     const newUser: User = {
       email,
@@ -24,10 +27,9 @@ export function createUser(id: string, email: string, name: string, number: stri
         return reject({ message: 'Error creating user', details: stderr });
       }
 
-      console.log('User created:', stdout);
       resolve({ message: 'User created successfully', user: newUser });
     });
   });
 }
 
-export default createUser
+export default createUser;

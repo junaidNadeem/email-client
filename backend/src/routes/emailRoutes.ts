@@ -1,6 +1,9 @@
 import express from 'express';
 import { ensureAuthenticated } from '../middleware/authMiddleware';
-import { initialFetchController, queryEmailsController } from '../controllers/emailController';
+import {
+  initialFetchController,
+  queryEmailsController,
+} from '../controllers/emailController';
 
 const router = express.Router();
 
